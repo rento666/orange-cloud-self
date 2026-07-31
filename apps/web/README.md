@@ -19,7 +19,7 @@ The landing page and OAuth callback relay for [Orange Cloud](https://github.com/
 ## Gotchas (read before touching routing or deploying)
 
 - `/oauth/callback` sits **outside** the `[locale]` segment, and the middleware matcher in [`src/middleware.ts`](src/middleware.ts) explicitly excludes `oauth` — the callback must reach the route handler untouched. Don't let locale routing swallow it.
-- On Cloudflare Workers, next-intl's middleware must be an **edge `middleware.ts`** — the Next 16 `proxy.ts` convention runs on the Node runtime, which Workers doesn't support.
+- On Cloudflare Workers, next-intl's middleware must be an **edge `middleware.ts`** — the Next 16 `proxy.ts` convention runs on the Node runtime, which Workers doesn't support. **Do NOT rename this file to `proxy.ts`**: OpenNext Cloudflare (`@opennextjs/cloudflare`, incl. v1.19.x) only supports Edge Middleware and will fail the build with `Node.js middleware is not currently supported` if it sees a Node-runtime `proxy.ts`. Next 16 still compiles `middleware.ts` on the Edge runtime, so it works — the `middleware` deprecation warning during `next build` is expected and harmless until OpenNext Cloudflare adds edge-`proxy.ts` support.
 - The screenshot gallery images live in `public/shots/<locale>/` (`01_dashboard.jpg` …); zh-HK reuses the zh-Hant set.
 
 ## Develop

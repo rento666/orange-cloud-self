@@ -4,7 +4,6 @@ import { shotLocale } from "@/i18n/routing";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import AppStoreBadge, { TESTFLIGHT_URL, APP_STORE_COMING } from "@/components/AppStoreBadge";
-import HomeRankBadge from "@/components/HomeRankBadge";
 import AndroidBadge from "@/components/AndroidBadge";
 import { getBuyContent } from "@/lib/buy/content";
 import PhoneDemo, { type PhoneStrings } from "@/components/PhoneDemo";
@@ -13,9 +12,10 @@ import Reveal from "@/components/Reveal";
 import Stars from "@/components/Stars";
 import FeatureIcon from "@/components/FeatureIcon";
 import ChangelogTabs from "@/components/ChangelogTabs";
-import { decoratedReleases, localize } from "@orange-cloud/changelog";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getReleaseState, type ReleaseState } from "@/lib/livestate/store";
+import { decoratedReleases, localize, type TrackState } from "@orange-cloud/changelog";
+
+// 纯个人使用：不接 D1 与上架状态机，版本历史仅按 changelog 的 live 标志门控。
+type ReleaseState = Partial<Record<"ios" | "android", TrackState>>;
 
 const SHOT_FILES = [
 	"01_dashboard",
@@ -30,7 +30,8 @@ const SHOT_FILES = [
 
 const FEATURE_ICONS = ["dns", "analytics", "tail", "storage", "waf", "tunnel", "widget", "accounts"];
 
-// 更新历史按 D1 release_state 门控（审核中 / 已上架）；ISR 每 60s 重新生成以反映 ASC/Play 信号（约 1 分钟内翻牌）。
+// 纯个人使用：不接 D1，版本历史仅按 changelog 的 live 标志门控（不展示未发布的版本）。
+// revalidate=60 仅控制静态再生节奏，无外部数据依赖。
 export const revalidate = 60;
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
@@ -46,13 +47,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 	const featureItems = t.raw("features.items") as Array<{ t: string; b: string }>;
 	const freeItems = t.raw("pro.freeItems") as string[];
 	const proItems = t.raw("pro.proItems") as string[];
-	let releaseState: ReleaseState = {};
-	try {
-		const { env } = getCloudflareContext();
-		if (env.IAP_DB) releaseState = await getReleaseState(env.IAP_DB);
-	} catch {
-		// 构建期 / 无 D1 绑定：回退到 live 标志门控（无 pending，仅展示 live:true 条目）
-	}
+	const releaseState: ReleaseState = {};
 	const renderTrack = (track: "ios" | "android") =>
 		decoratedReleases(track, releaseState[track]).map(({ release: r, status }) => ({
 			version: r.version,
@@ -103,18 +98,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 										comingLabel={t("badge.comingLabel")}
 										coming={APP_STORE_COMING}
 									/>
-									{/* Android：大陆 → 官网下载 APK；其余 → Google Play（暂置灰即将上线）。客户端按 /api/geo 判定。 */}
-									<AndroidBadge locale={locale} strings={buy.download} />
+									{/* Android：纯个人使用，直接提供官网 APK 下载（不再按地区切换 Google Play / geo）。 */}
+									<AndroidBadge strings={buy.download} />
 								</div>
 								<p className="mt-3 text-[13px] t-tertiary">{t("hero.note")}</p>
 							</Reveal>
-							{/* 按访客 IP 所在地区展示当前 App Store 排名（未上榜/非追踪地区不渲染）。 */}
-							<HomeRankBadge
-								className="mt-5"
-								locale={locale}
-								badgeTemplate={t.raw("rank.badge")}
-								ariaLabel={t("rank.ariaLabel")}
-							/>
 							<Reveal index={4}>
 								<HorizonArc className="mt-10 max-w-[520px]" />
 							</Reveal>
@@ -375,7 +363,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 									comingLabel={t("badge.comingLabel")}
 									coming={APP_STORE_COMING}
 								/>
-								<AndroidBadge locale={locale} strings={buy.download} />
+								<AndroidBadge strings={buy.download} />
 							</div>
 							<p className="mt-5 text-[13px] t-tertiary">{t("cta.requirement")}</p>
 						</Reveal>
